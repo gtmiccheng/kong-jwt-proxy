@@ -1,0 +1,40 @@
+services:
+  kong:
+    image: kong:3.4
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      APP_USER_JWT_KEY: ${APP_USER_JWT_KEY:-app-user-key}
+      APP_USER_JWT_SECRET: ${APP_USER_JWT_SECRET:-app-user-secret}
+    volumes:
+      - ./kong/kong.yml:/kong/kong.yml:ro
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+      - "8001:8001"
+      - "8444:8444"
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  upstream-app:
+    build:
+      context: ./upstream-app
+      dockerfile: Dockerfile.upstream
+    ports:
+      - "8080:80"
+    networks:
+      - kong-net
+
+networks:
+  kong-net:
+    driver: bridge

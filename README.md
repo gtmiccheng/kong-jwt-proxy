@@ -23,26 +23,62 @@ docker-compose logs -f kong
 
 > **Note**: Running in DB-less mode - no PostgreSQL required. All config loaded from `kong.yml`.
 
+## Setup
+
+### 1. Generating Secure JWT Secrets
+
+**JWT Key (iss claim):** Any unique string identifier for the consumer
+- Example: `my-app-prod`, `service-a`, `client-123`
+
+**JWT Secret:** Cryptographically secure random string (256+ bits for HS256)
+```bash
+# Generate secure 256-bit secret for HS256
+openssl rand -base64 32
+```
+
+**Example .env with generated secrets:**
+```env
+APP_USER_JWT_KEY=my-app-prod
+APP_USER_JWT_SECRET=K7gNuZsE4bLp9qR2vX8yM3nB6cF1hJ5kL8pQ2wR4tY7uI9oP0aS3dF6gH8jK1l
+ADMIN_USER_JWT_KEY=admin-service
+ADMIN_USER_JWT_SECRET=X9mN2bV5cX8zL1kJ4hG7fD3sA6qW9eR2tY5uI8oP1aS4dF7gH0jK3lZ6xC9vB
+```
+
+> **Security Note**: The default secrets in `.env.example` are insecure. Always generate new secrets for production using `openssl rand -base64 32`. Never commit real secrets to version control.
+
+### 2. Install Python & Dependencies
+
+```bash
+# Install UV
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Initialize UV
+uv init
+
+# Install Python
+uv python install 3.14 --default
+
+# Sync dependencies
+uv sync
+```
+
 ## Testing
 
 ### 1. Generate JWT Token
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
 # Generate token for app-user (valid 1 hour)
-python generate_jwt.py app-user
+uv run jwt/generate_jwt.py app-user
 
 # Generate token for admin-user (valid 24 hours)
-python generate_jwt.py admin-user --expiry 24
+uv run jwt/generate_jwt.py admin-user --expiry 24
 ```
 
 ### 2. Test Protected Endpoint
 
 ```bash
 # Get token
-TOKEN=$(python generate_jwt.py app-user)
+TOKEN=$(uv run jwt/generate_jwt.py app-user)
 
 # Call protected API through Kong
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api
@@ -115,31 +151,11 @@ curl http://localhost:8001/plugins
 | `APP_USER_JWT_SECRET` | `app-user-secret` | JWT secret for app-user |
 
 Set via `.env` file or export in shell:
+
 ```bash
 export APP_USER_JWT_SECRET="your-secure-secret"
 docker-compose up -d
 ```
-
-### Generating Secure JWT Secrets
-
-**JWT Key (iss claim):** Any unique string identifier for the consumer
-- Example: `my-app-prod`, `service-a`, `client-123`
-
-**JWT Secret:** Cryptographically secure random string (256+ bits for HS256)
-```bash
-# Generate secure 256-bit secret for HS256
-openssl rand -base64 32
-```
-
-**Example .env with generated secrets:**
-```env
-APP_USER_JWT_KEY=my-app-prod
-APP_USER_JWT_SECRET=K7gNuZsE4bLp9qR2vX8yM3nB6cF1hJ5kL8pQ2wR4tY7uI9oP0aS3dF6gH8jK1l
-ADMIN_USER_JWT_KEY=admin-service
-ADMIN_USER_JWT_SECRET=X9mN2bV5cX8zL1kJ4hG7fD3sA6qW9eR2tY5uI8oP1aS4dF7gH0jK3lZ6xC9vB
-```
-
-> **Security Note**: The default secrets in `.env.example` are insecure. Always generate new secrets for production using `openssl rand -base64 32`. Never commit real secrets to version control.
 
 ### Consumers
 
